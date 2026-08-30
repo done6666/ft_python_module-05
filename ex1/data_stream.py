@@ -2,6 +2,14 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
+class InvalidData(Exception):
+    """Raised when a processor receives data it cannot ingest."""
+
+
+class EmptyProcessor(Exception):
+    """Raised when output is called on a processor holding no data."""
+
+
 class DataProcessor(ABC):
 
     def __init__(self, name: str) -> None:
@@ -17,9 +25,13 @@ class DataProcessor(ABC):
     def ingest(self, data: Any) -> None:
         ...
 
+    def __str__(self) -> str:
+        return (f"{self.name}: total {self.total} items processed, "
+                f"remaining {self.remaining} on processor")
+
     def output(self) -> tuple[int, str]:
         if not self._items:
-            raise IndexError(f"{self.name} has no data to output")
+            raise EmptyProcessor(f"{self.name} has no data to output")
         return self._items.pop(0)
 
     @property
@@ -46,7 +58,7 @@ class NumericProcessor(DataProcessor):
 
     def ingest(self, data: int | float | list[int | float]) -> None:
         if not self.validate(data):
-            raise ValueError("Improper numeric data")
+            raise InvalidData("Improper numeric data")
         values = data if isinstance(data, list) else [data]
         for value in values:
             self._store(str(value))
@@ -64,7 +76,7 @@ class TextProcessor(DataProcessor):
 
     def ingest(self, data: str | list[str]) -> None:
         if not self.validate(data):
-            raise ValueError("Improper text data")
+            raise InvalidData("Improper text data")
         values = data if isinstance(data, list) else [data]
         for value in values:
             self._store(value)
@@ -92,7 +104,7 @@ class LogProcessor(DataProcessor):
 
     def ingest(self, data: dict[str, str] | list[dict[str, str]]) -> None:
         if not self.validate(data):
-            raise ValueError("Improper log data")
+            raise InvalidData("Improper log data")
         entries = data if isinstance(data, list) else [data]
         for entry in entries:
             self._store(": ".join(entry.values()))
@@ -122,8 +134,7 @@ class DataStream:
             print("No processor found, no data")
             return
         for proc in self._processors:
-            print(f"{proc.name}: total {proc.total} items processed, "
-                  f"remaining {proc.remaining} on processor")
+            print(proc)
 
 
 def consume(proc: DataProcessor, nb: int) -> None:
